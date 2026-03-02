@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Dados - Mobile Pro</title>
+    <title>Simulador de Dados - El Susurro de las Hojas</title>
     <style>
         body { margin: 0; overflow: hidden; background: #333333; font-family: sans-serif; }
         #ui { position: absolute; bottom: 30px; width: 100%; text-align: center; z-index: 10; }
@@ -38,6 +38,7 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+        // --- CONFIGURACIÓN Y CONSTANTES ---
         const deg_to_rad = (grados) => grados * (Math.PI / 180);
         const angulo_vision = 30;
         const angulo_rotacion_minimo = 20;
@@ -52,13 +53,13 @@
             { nombre: "2_Nube", rx: 0, ry: 90, rz: 0, ejeAdj: "z", dirAdj: "-", ejeRot: "x", orden: "YZX", sb: "-", sv: "+" }
         ];
 
+        // --- MOTOR 3D ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // AJUSTE DE RESOLUCIÓN PARA CELULARES (Quita lo borroso)
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Nitidez para móvil
         renderer.setClearColor(0x333333); 
         document.body.appendChild(renderer.domElement);
 
@@ -67,7 +68,9 @@
         light.position.set(5, 10, 7);
         scene.add(light);
 
+        // --- VARIABLES GLOBALES ---
         let dieBlanco, dieVerde;
+        let cargados = 0; // CORRECCIÓN: Variable de control de carga añadida
         let rolling = false;
         let startTime = 0;
         const duration = 1500; 
@@ -80,6 +83,7 @@
 
         const loader = new GLTFLoader();
 
+        // --- FUNCIONES DE CARGA ---
         function cargarDado(url, posX, tiltY, ordenInicial, rX, rY, rZ, callback) {
             loader.load(url, (gltf) => {
                 const die = gltf.scene;
@@ -93,70 +97,89 @@
                 const box = new THREE.Box3().setFromObject(die);
                 const center = box.getCenter(new THREE.Vector3());
                 die.position.sub(center);
+
                 const grupo = new THREE.Group();
                 grupo.position.x = posX;
                 grupo.rotation.y = deg_to_rad(tiltY);
+                
                 die.rotation.order = ordenInicial;
                 die.rotation.set(deg_to_rad(rX), deg_to_rad(rY), deg_to_rad(rZ));
+
                 grupo.add(die);
                 scene.add(grupo);
                 callback(die);
             });
         }
 
-        // --- INICIALIZACIÓN ---
-        rotInitB = { x: 0, y: 0, z: 0 }; 
-        rotInitV = { x: 0, y: 0, z: 0 };
-
-        cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', rotInitB.x, rotInitB.y, rotInitB.z, (d) => { dieBlanco = d; checkCarga(); });
-        cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', rotInitV.x, rotInitV.y, rotInitV.z, (d) => { dieVerde = d; checkCarga(); });
-
         function checkCarga() {
             cargados++;
             if (cargados === 2) {
                 document.getElementById('loading').style.display = 'none';
-                ajustarCamara(); // Ajuste inicial tras carga
+                ajustarCamara();
             }
         }
 
+        // Carga inicial de dados
+        cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', 0, 0, 0, (d) => { dieBlanco = d; checkCarga(); });
+        cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', 0, 0, 0, (d) => { dieVerde = d; checkCarga(); });
+
+        // --- LÓGICA DE LANZAMIENTO ---
         function calcularRotacion(dieObj, nombreId) {
             if (nombreId === "BLANCO") console.log(`------------------------------`);
+
             const cara = tablaCaras[Math.floor(Math.random() * tablaCaras.length)];
             dieObj.rotation.order = cara.orden;
+
             let fX = cara.rx, fY = cara.ry, fZ = cara.rz;
             const adj = angulo_vision;
+            
             if (cara.ejeAdj === "x") fX += (cara.dirAdj === "+" ? adj : -adj);
             if (cara.ejeAdj === "y") fY += (cara.dirAdj === "+" ? adj : -adj);
             if (cara.ejeAdj === "z") fZ += (cara.dirAdj === "+" ? adj : -adj);
+
             const pasos = (angulo_rotacion_maximo - angulo_rotacion_minimo) / 5;
             const anguloAleatorio = angulo_rotacion_minimo + (Math.floor(Math.random() * (pasos + 1)) * 5);
+            
             const mult90 = Math.floor(Math.random() * 4);
             const sentido = (nombreId === "BLANCO") ? cara.sb : cara.sv;
             const spinFinal = (90 * mult90) + (sentido === "+" ? anguloAleatorio : -anguloAleatorio);
+
             let degX = fX + (cara.ejeRot === "x" ? spinFinal : 0);
             let degY = fY + (cara.ejeRot === "y" ? spinFinal : 0);
             let degZ = fZ + (cara.ejeRot === "z" ? spinFinal : 0);
+
             const logEje = `${cara.ejeRot.toUpperCase()}: 90° * ${mult90} ${sentido} ${anguloAleatorio}°`;
             console.log(`--- DADO ${nombreId} --- | Cara: ${cara.nombre} | Sentido: ${sentido}`);
             console.log(`Cálculo Eje Rotación -> ${logEje}`);
+
             const vueltas = 360 * 3;
-            return { x: deg_to_rad(degX + vueltas), y: deg_to_rad(degY + vueltas), z: deg_to_rad(degZ + vueltas) };
+            return {
+                x: deg_to_rad(degX + vueltas),
+                y: deg_to_rad(degY + vueltas),
+                z: deg_to_rad(degZ + vueltas)
+            };
         }
 
         window.lanzarDados = function() {
             if (rolling || !dieBlanco || !dieVerde) return;
+
             dieBlanco.rotation.set(deg_to_rad(rotInitB.x), deg_to_rad(rotInitB.y), deg_to_rad(rotInitB.z));
             dieVerde.rotation.set(deg_to_rad(rotInitV.x), deg_to_rad(rotInitV.y), deg_to_rad(rotInitV.z));
+
             startB = { x: dieBlanco.rotation.x, y: dieBlanco.rotation.y, z: dieBlanco.rotation.z };
             startV = { x: dieVerde.rotation.x, y: dieVerde.rotation.y, z: dieVerde.rotation.z };
+
             const resB = calcularRotacion(dieBlanco, "BLANCO");
             targetB = { x: resB.x, y: resB.y, z: resB.z };
+
             const resV = calcularRotacion(dieVerde, "VERDE");
             targetV = { x: resV.x, y: resV.y, z: resV.z };
+
             startTime = performance.now();
             rolling = true;
         };
 
+        // --- ANIMACIÓN Y RESPONSIVIDAD ---
         function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
         function animate() {
@@ -165,29 +188,29 @@
                 const elapsed = performance.now() - startTime;
                 let t = Math.min(elapsed / duration, 1);
                 const easedT = easeOutCubic(t);
+
                 dieBlanco.rotation.x = startB.x + (targetB.x - startB.x) * easedT;
                 dieBlanco.rotation.y = startB.y + (targetB.y - startB.y) * easedT;
                 dieBlanco.rotation.z = startB.z + (targetB.z - startB.z) * easedT;
+
                 dieVerde.rotation.x = startV.x + (targetV.x - startV.x) * easedT;
                 dieVerde.rotation.y = startV.y + (targetV.y - startV.y) * easedT;
                 dieVerde.rotation.z = startV.z + (targetV.z - startV.z) * easedT;
+
                 if (t === 1) rolling = false;
             }
             renderer.render(scene, camera);
         }
         animate();
 
-        // --- LÓGICA RESPONSIVA (VERTICAL / HORIZONTAL) ---
         function ajustarCamara() {
             const aspect = window.innerWidth / window.innerHeight;
             camera.aspect = aspect;
 
             if (aspect < 1) { 
-                // Modo Vertical: Alejamos la cámara para que entren ambos dados
-                camera.position.z = 4.8; 
+                camera.position.z = 4.8; // Vertical: Lejos
             } else { 
-                // Modo Horizontal: Acercamos para que se vean grandes y nítidos
-                camera.position.z = 2.8; 
+                camera.position.z = 2.8; // Horizontal: Cerca
             }
             
             camera.updateProjectionMatrix();
