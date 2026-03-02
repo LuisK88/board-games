@@ -2,27 +2,71 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simulador de Dados - El Susurro de las Hojas</title>
     <style>
         body { margin: 0; overflow: hidden; background: #333333; font-family: sans-serif; }
-        #ui { position: absolute; bottom: 30px; width: 100%; text-align: center; z-index: 10; }
+        
+        /* Contenedor de UI flexible para asegurar centrado total */
+        #ui { 
+            position: absolute; 
+            bottom: 0; 
+            width: 100%; 
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 30px; /* Espacio desde el borde inferior */
+            pointer-events: none; /* Permite tocar los dados si fuera necesario */
+            z-index: 10;
+        }
+
         button { 
-            padding: 18px 40px; font-size: 1.2rem; cursor: pointer; border-radius: 50px; 
-            border: none; background: #27ae60; color: white; font-weight: bold;
-            box-shadow: 0 5px #1e8449; transition: 0.1s; text-transform: uppercase;
+            pointer-events: auto; /* Reactiva el toque para el botón */
+            padding: 16px 50px; 
+            font-size: 1.4rem; 
+            cursor: pointer; 
+            border-radius: 50px; 
+            border: none; 
+            background: #E1B78F; /* Color solicitado */
+            color: #065900;      /* Color de letra solicitado */
+            font-weight: 900;
+            box-shadow: 0 6px #b89472; 
+            transition: 0.1s; 
+            text-transform: uppercase;
+            letter-spacing: 2px;
             -webkit-tap-highlight-color: transparent;
         }
-        button:active { box-shadow: 0 2px #1e8449; transform: translateY(3px); }
-        #loading { position: absolute; top: 50%; width: 100%; text-align: center; color: #ffffff; font-size: 1.2rem; }
+
+        button:active { 
+            box-shadow: 0 2px #b89472; 
+            transform: translateY(4px); 
+        }
+
+        /* Ajustes específicos para Celular en Horizontal (poca altura) */
+        @media (max-height: 500px) {
+            #ui { padding-bottom: 15px; }
+            button { 
+                padding: 10px 40px; 
+                font-size: 1rem; 
+            }
+        }
+
+        #loading { 
+            position: absolute; 
+            top: 50%; 
+            width: 100%; 
+            text-align: center; 
+            color: #ffffff; 
+            font-size: 1.2rem; 
+        }
     </style>
 </head>
 <body>
 
-    <div id="loading">CARGANDO DADOS...</div>
+    <div id="loading">CARGANDO...</div>
 
     <div id="ui">
-        <button onclick="lanzarDados()">Lanzar Dados</button>
+        <button onclick="lanzarDados()">LANZAR</button>
     </div>
 
     <script type="importmap">
@@ -38,7 +82,6 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- CONFIGURACIÓN Y CONSTANTES ---
         const deg_to_rad = (grados) => grados * (Math.PI / 180);
         const angulo_vision = 30;
         const angulo_rotacion_minimo = 20;
@@ -53,13 +96,12 @@
             { nombre: "2_Nube", rx: 0, ry: 90, rz: 0, ejeAdj: "z", dirAdj: "-", ejeRot: "x", orden: "YZX", sb: "-", sv: "+" }
         ];
 
-        // --- MOTOR 3D ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Nitidez para móvil
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x333333); 
         document.body.appendChild(renderer.domElement);
 
@@ -68,22 +110,19 @@
         light.position.set(5, 10, 7);
         scene.add(light);
 
-        // --- VARIABLES GLOBALES ---
         let dieBlanco, dieVerde;
-        let cargados = 0; // CORRECCIÓN: Variable de control de carga añadida
+        let cargados = 0;
         let rolling = false;
         let startTime = 0;
         const duration = 1500; 
         
         let rotInitB = { x: 0, y: 0, z: 0 };
         let rotInitV = { x: 0, y: 0, z: 0 };
-
         let startB = { x: 0, y: 0, z: 0 }, targetB = { x: 0, y: 0, z: 0 };
         let startV = { x: 0, y: 0, z: 0 }, targetV = { x: 0, y: 0, z: 0 };
 
         const loader = new GLTFLoader();
 
-        // --- FUNCIONES DE CARGA ---
         function cargarDado(url, posX, tiltY, ordenInicial, rX, rY, rZ, callback) {
             loader.load(url, (gltf) => {
                 const die = gltf.scene;
@@ -101,7 +140,6 @@
                 const grupo = new THREE.Group();
                 grupo.position.x = posX;
                 grupo.rotation.y = deg_to_rad(tiltY);
-                
                 die.rotation.order = ordenInicial;
                 die.rotation.set(deg_to_rad(rX), deg_to_rad(rY), deg_to_rad(rZ));
 
@@ -119,67 +157,47 @@
             }
         }
 
-        // Carga inicial de dados
         cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', 0, 0, 0, (d) => { dieBlanco = d; checkCarga(); });
         cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', 0, 0, 0, (d) => { dieVerde = d; checkCarga(); });
 
-        // --- LÓGICA DE LANZAMIENTO ---
         function calcularRotacion(dieObj, nombreId) {
             if (nombreId === "BLANCO") console.log(`------------------------------`);
-
             const cara = tablaCaras[Math.floor(Math.random() * tablaCaras.length)];
             dieObj.rotation.order = cara.orden;
-
             let fX = cara.rx, fY = cara.ry, fZ = cara.rz;
             const adj = angulo_vision;
-            
             if (cara.ejeAdj === "x") fX += (cara.dirAdj === "+" ? adj : -adj);
             if (cara.ejeAdj === "y") fY += (cara.dirAdj === "+" ? adj : -adj);
             if (cara.ejeAdj === "z") fZ += (cara.dirAdj === "+" ? adj : -adj);
-
             const pasos = (angulo_rotacion_maximo - angulo_rotacion_minimo) / 5;
             const anguloAleatorio = angulo_rotacion_minimo + (Math.floor(Math.random() * (pasos + 1)) * 5);
-            
             const mult90 = Math.floor(Math.random() * 4);
             const sentido = (nombreId === "BLANCO") ? cara.sb : cara.sv;
             const spinFinal = (90 * mult90) + (sentido === "+" ? anguloAleatorio : -anguloAleatorio);
-
             let degX = fX + (cara.ejeRot === "x" ? spinFinal : 0);
             let degY = fY + (cara.ejeRot === "y" ? spinFinal : 0);
             let degZ = fZ + (cara.ejeRot === "z" ? spinFinal : 0);
-
             const logEje = `${cara.ejeRot.toUpperCase()}: 90° * ${mult90} ${sentido} ${anguloAleatorio}°`;
             console.log(`--- DADO ${nombreId} --- | Cara: ${cara.nombre} | Sentido: ${sentido}`);
             console.log(`Cálculo Eje Rotación -> ${logEje}`);
-
             const vueltas = 360 * 3;
-            return {
-                x: deg_to_rad(degX + vueltas),
-                y: deg_to_rad(degY + vueltas),
-                z: deg_to_rad(degZ + vueltas)
-            };
+            return { x: deg_to_rad(degX + vueltas), y: deg_to_rad(degY + vueltas), z: deg_to_rad(degZ + vueltas) };
         }
 
         window.lanzarDados = function() {
             if (rolling || !dieBlanco || !dieVerde) return;
-
             dieBlanco.rotation.set(deg_to_rad(rotInitB.x), deg_to_rad(rotInitB.y), deg_to_rad(rotInitB.z));
             dieVerde.rotation.set(deg_to_rad(rotInitV.x), deg_to_rad(rotInitV.y), deg_to_rad(rotInitV.z));
-
             startB = { x: dieBlanco.rotation.x, y: dieBlanco.rotation.y, z: dieBlanco.rotation.z };
             startV = { x: dieVerde.rotation.x, y: dieVerde.rotation.y, z: dieVerde.rotation.z };
-
             const resB = calcularRotacion(dieBlanco, "BLANCO");
             targetB = { x: resB.x, y: resB.y, z: resB.z };
-
             const resV = calcularRotacion(dieVerde, "VERDE");
             targetV = { x: resV.x, y: resV.y, z: resV.z };
-
             startTime = performance.now();
             rolling = true;
         };
 
-        // --- ANIMACIÓN Y RESPONSIVIDAD ---
         function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
         function animate() {
@@ -188,15 +206,12 @@
                 const elapsed = performance.now() - startTime;
                 let t = Math.min(elapsed / duration, 1);
                 const easedT = easeOutCubic(t);
-
                 dieBlanco.rotation.x = startB.x + (targetB.x - startB.x) * easedT;
                 dieBlanco.rotation.y = startB.y + (targetB.y - startB.y) * easedT;
                 dieBlanco.rotation.z = startB.z + (targetB.z - startB.z) * easedT;
-
                 dieVerde.rotation.x = startV.x + (targetV.x - startV.x) * easedT;
                 dieVerde.rotation.y = startV.y + (targetV.y - startV.y) * easedT;
                 dieVerde.rotation.z = startV.z + (targetV.z - startV.z) * easedT;
-
                 if (t === 1) rolling = false;
             }
             renderer.render(scene, camera);
@@ -204,21 +219,31 @@
         animate();
 
         function ajustarCamara() {
-            const aspect = window.innerWidth / window.innerHeight;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const aspect = width / height;
+            
             camera.aspect = aspect;
 
             if (aspect < 1) { 
-                camera.position.z = 5.5; // Vertical: Lejos
+                // MODO VERTICAL
+                camera.position.z = 4.8; 
+                camera.position.y = 0; // Dados centrados
             } else { 
-                camera.position.z = 2; // Horizontal: Cerca
+                // MODO HORIZONTAL
+                camera.position.z = 2.8; 
+                camera.position.y = 0.3; // SUBIMOS LOS DADOS para dejar espacio al botón
             }
             
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(width, height);
         }
 
+        // Eventos para asegurar que el redimensionamiento sea perfecto en móviles
         window.addEventListener('resize', ajustarCamara);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(ajustarCamara, 100); // Pequeño retraso para que el navegador actualice dimensiones
+        });
     </script>
 </body>
 </html>
-
