@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Dados - Lógica Avanzada</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #333333; font-family: sans-serif; }
+        #ui { position: absolute; bottom: 30px; width: 100%; text-align: center; }
+        button { 
+            padding: 18px 40px; font-size: 1.2rem; cursor: pointer; border-radius: 50px; 
+            border: none; background: #27ae60; color: white; font-weight: bold;
+            box-shadow: 0 5px #1e8449; transition: 0.1s; text-transform: uppercase;
+        }
+        button:active { box-shadow: 0 2px #1e8449; transform: translateY(3px); }
+        #loading { position: absolute; top: 50%; width: 100%; text-align: center; color: #222; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+    <div id="loading">CARGANDO DADOS...</div>
+
+    <div id="ui">
+        <button onclick="lanzarDados()">Lanzar Dados</button>
+    </div>
+
+    <script type="importmap">
+        { 
+            "imports": { 
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            } 
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const deg_to_rad = (grados) => grados * (Math.PI / 180);
+        const angulo_vision = 30;
+        const angulo_rotacion_minimo = 20;
+        const angulo_rotacion_maximo = 40;
+
+        // Tabla con las nuevas columnas de sentido de rotación
+        const tablaCaras = [
+            { nombre: "1", rx: 90, ry: 0, rz: 0, ejeAdj: "x", dirAdj: "-", ejeRot: "y", orden: "XYZ", sb: "+", sv: "-" },
+            { nombre: "2", rx: 180, ry: 0, rz: 0, ejeAdj: "x", dirAdj: "-", ejeRot: "z", orden: "XYZ", sb: "-", sv: "+" },
+            { nombre: "3_1", rx: 0, ry: 0, rz: 0, ejeAdj: "x", dirAdj: "-", ejeRot: "z", orden: "XYZ", sb: "+", sv: "-" },
+            { nombre: "3_2", rx: 270, ry: 0, rz: 0, ejeAdj: "x", dirAdj: "-", ejeRot: "y", orden: "XYZ", sb: "-", sv: "+" },
+            { nombre: "4", rx: 0, ry: 270, rz: 0, ejeAdj: "z", dirAdj: "+", ejeRot: "x", orden: "YZX", sb: "+", sv: "-" },
+            { nombre: "2_Nube", rx: 0, ry: 90, rz: 0, ejeAdj: "z", dirAdj: "-", ejeRot: "x", orden: "YZX", sb: "-", sv: "+" }
+        ];
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x333333); 
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const light = new THREE.DirectionalLight(0xffffff, 1.5);
+        light.position.set(5, 10, 7);
+        scene.add(light);
+        camera.position.set(0, 0, 3);
+
+        let dieBlanco, dieVerde;
+        let rolling = false;
+        let startTime = 0;
+        const duration = 1500; 
+        
+        let rotInitB = { x: 0, y: 0, z: 0 };
+        let rotInitV = { x: 0, y: 0, z: 0 };
+
+        let startB = { x: 0, y: 0, z: 0 }, targetB = { x: 0, y: 0, z: 0 };
+        let startV = { x: 0, y: 0, z: 0 }, targetV = { x: 0, y: 0, z: 0 };
+
+        const loader = new GLTFLoader();
+
+        function cargarDado(url, posX, tiltY, ordenInicial, rX, rY, rZ, callback) {
+            loader.load(url, (gltf) => {
+                const die = gltf.scene;
+                die.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material.roughness = 1; 
+                        child.material.metalness = 0;
+                    }
+                });
+                die.scale.set(50, 50, 50);
+                const box = new THREE.Box3().setFromObject(die);
+                const center = box.getCenter(new THREE.Vector3());
+                die.position.sub(center);
+                const grupo = new THREE.Group();
+                grupo.position.x = posX;
+                grupo.rotation.y = deg_to_rad(tiltY);
+                die.rotation.order = ordenInicial;
+                die.rotation.set(deg_to_rad(rX), deg_to_rad(rY), deg_to_rad(rZ));
+                grupo.add(die);
+                scene.add(grupo);
+                callback(die);
+            });
+        }
+
+        let cargados = 0;
+        rotInitB = { x: -30, y: 0, z: 25 }; 
+        rotInitV = { x: 150, y: 0, z: 20 };
+
+        cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', rotInitB.x, rotInitB.y, rotInitB.z, (d) => { dieBlanco = d; checkCarga(); });
+        cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', rotInitV.x, rotInitV.y, rotInitV.z, (d) => { dieVerde = d; checkCarga(); });
+
+        function checkCarga() {
+            cargados++;
+            if (cargados === 2) document.getElementById('loading').style.display = 'none';
+        }
+
+        function calcularRotacion(dieObj, nombreId) {
+            const cara = tablaCaras[Math.floor(Math.random() * tablaCaras.length)];
+            dieObj.rotation.order = cara.orden;
+
+            let fX = cara.rx, fY = cara.ry, fZ = cara.rz;
+            const adj = angulo_vision;
+            
+            if (cara.ejeAdj === "x") fX += (cara.dirAdj === "+" ? adj : -adj);
+            if (cara.ejeAdj === "y") fY += (cara.dirAdj === "+" ? adj : -adj);
+            if (cara.ejeAdj === "z") fZ += (cara.dirAdj === "+" ? adj : -adj);
+
+            // Selección de ángulo aleatorio múltiplo de 5 (20, 25, 30, 35, 40)
+            const pasos = (angulo_rotacion_maximo - angulo_rotacion_minimo) / 5;
+            const anguloAleatorio = angulo_rotacion_minimo + (Math.floor(Math.random() * (pasos + 1)) * 5);
+            
+            // Lógica de multiplicador 90° y sentido
+            const mult90 = Math.floor(Math.random() * 4);
+            const sentido = (nombreId === "BLANCO") ? cara.sb : cara.sv;
+            const spinFinal = (90 * mult90) + (sentido === "+" ? anguloAleatorio : -anguloAleatorio);
+
+            let degX = fX + (cara.ejeRot === "x" ? spinFinal : 0);
+            let degY = fY + (cara.ejeRot === "y" ? spinFinal : 0);
+            let degZ = fZ + (cara.ejeRot === "z" ? spinFinal : 0);
+
+            // Consola con el formato solicitado: Eje: 90° * mult +/- angulo°
+            const logEje = `${cara.ejeRot.toUpperCase()}: 90° * ${mult90} ${sentido} ${anguloAleatorio}°`;
+            console.log(`--- DADO ${nombreId} ---`);
+            console.log(`Cara: ${cara.nombre} | Sentido: ${sentido}`);
+            console.log(`Cálculo Eje Rotación -> ${logEje}`);
+            console.log(`Grados Finales (sin vueltas): X:${degX}°, Y:${degY}°, Z:${degZ}°`);
+            if (nombreId === "VERDE") console.log(`------------------------------`);
+
+            const vueltas = 360 * 3;
+            return {
+                x: deg_to_rad(degX + vueltas),
+                y: deg_to_rad(degY + vueltas),
+                z: deg_to_rad(degZ + vueltas)
+            };
+        }
+
+        window.lanzarDados = function() {
+            if (rolling || !dieBlanco || !dieVerde) return;
+
+            dieBlanco.rotation.set(deg_to_rad(rotInitB.x), deg_to_rad(rotInitB.y), deg_to_rad(rotInitB.z));
+            dieVerde.rotation.set(deg_to_rad(rotInitV.x), deg_to_rad(rotInitV.y), deg_to_rad(rotInitV.z));
+
+            startB = { x: dieBlanco.rotation.x, y: dieBlanco.rotation.y, z: dieBlanco.rotation.z };
+            startV = { x: dieVerde.rotation.x, y: dieVerde.rotation.y, z: dieVerde.rotation.z };
+
+            const resB = calcularRotacion(dieBlanco, "BLANCO");
+            targetB = { x: resB.x, y: resB.y, z: resB.z };
+
+            const resV = calcularRotacion(dieVerde, "VERDE");
+            targetV = { x: resV.x, y: resV.y, z: resV.z };
+
+            startTime = performance.now();
+            rolling = true;
+        };
+
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (rolling) {
+                const elapsed = performance.now() - startTime;
+                let t = Math.min(elapsed / duration, 1);
+                const easedT = easeOutCubic(t);
+
+                dieBlanco.rotation.x = startB.x + (targetB.x - startB.x) * easedT;
+                dieBlanco.rotation.y = startB.y + (targetB.y - startB.y) * easedT;
+                dieBlanco.rotation.z = startB.z + (targetB.z - startB.z) * easedT;
+
+                dieVerde.rotation.x = startV.x + (targetV.x - startV.x) * easedT;
+                dieVerde.rotation.y = startV.y + (targetV.y - startV.y) * easedT;
+                dieVerde.rotation.z = startV.z + (targetV.z - startV.z) * easedT;
+
+                if (t === 1) rolling = false;
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
