@@ -7,7 +7,6 @@
     <style>
         body { margin: 0; overflow: hidden; background: #333333; font-family: sans-serif; }
         
-        /* Contenedor de UI flexible para asegurar centrado total */
         #ui { 
             position: absolute; 
             bottom: 0; 
@@ -15,20 +14,20 @@
             display: flex;
             justify-content: center;
             align-items: flex-end;
-            padding-bottom: 30px; /* Espacio desde el borde inferior */
-            pointer-events: none; /* Permite tocar los dados si fuera necesario */
+            padding-bottom: 30px; 
+            pointer-events: none; 
             z-index: 10;
         }
 
         button { 
-            pointer-events: auto; /* Reactiva el toque para el botón */
+            pointer-events: auto; 
             padding: 16px 50px; 
             font-size: 1.4rem; 
             cursor: pointer; 
             border-radius: 50px; 
             border: none; 
-            background: #E1B78F; /* Color solicitado */
-            color: #065900;      /* Color de letra solicitado */
+            background: #E1B78F; 
+            color: #065900;      
             font-weight: 900;
             box-shadow: 0 6px #b89472; 
             transition: 0.1s; 
@@ -42,7 +41,6 @@
             transform: translateY(4px); 
         }
 
-        /* Ajustes específicos para Celular en Horizontal (poca altura) */
         @media (max-height: 500px) {
             #ui { padding-bottom: 15px; }
             button { 
@@ -226,26 +224,20 @@
             camera.aspect = aspect;
 
             if (aspect < 1) { 
-                // MODO VERTICAL
-                camera.position.z = 6; 
-                camera.position.y = 0; // Dados centrados
+                camera.position.z = 6; // Ajuste solicitado: 6 en vertical
             } else { 
-                // MODO HORIZONTAL
-                camera.position.z = 2; 
-                camera.position.y = 0; // SUBIMOS LOS DADOS para dejar espacio al botón
+                camera.position.z = 2; // Ajuste solicitado: 2 en horizontal
             }
             
+            camera.position.y = 0; // Regresado a como estaba antes
             camera.updateProjectionMatrix();
             renderer.setSize(width, height);
         }
 
-        // Eventos para asegurar que el redimensionamiento sea perfecto en móviles
         window.addEventListener('resize', ajustarCamara);
         window.addEventListener('orientationchange', () => {
-            setTimeout(ajustarCamara, 100); // Pequeño retraso para que el navegador actualice dimensiones
+            setTimeout(ajustarCamara, 150); 
         });
     </script>
 </body>
 </html>
-
-
