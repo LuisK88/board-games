@@ -114,8 +114,7 @@
         let startTime = 0;
         const duration = 1500; 
         
-        let rotInitB = { x: 0, y: 0, z: 0 };
-        let rotInitV = { x: 0, y: 0, z: 0 };
+
         let startB = { x: 0, y: 0, z: 0 }, targetB = { x: 0, y: 0, z: 0 };
         let startV = { x: 0, y: 0, z: 0 }, targetV = { x: 0, y: 0, z: 0 };
 
@@ -155,8 +154,10 @@
             }
         }
 
-        cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', 0, 0, 0, (d) => { dieBlanco = d; checkCarga(); });
-        cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', 0, 0, 0, (d) => { dieVerde = d; checkCarga(); });
+        let rotInitB = { x: 60, y: 0, z: 0 };
+        let rotInitV = { x: 0, y: 0, z: 0 };
+        cargarDado('./dado_blanco.glb', -0.7, 20, 'XYZ', rotInitB.x, rotInitB.y, rotInitB.z, (d) => { dieBlanco = d; checkCarga(); });
+        cargarDado('./dado_verde.glb', 0.7, -20, 'XYZ', rotInitV.x, rotInitV.y, rotInitV.z, (d) => { dieVerde = d; checkCarga(); });
 
         function calcularRotacion(dieObj, nombreId) {
             if (nombreId === "BLANCO") console.log(`------------------------------`);
@@ -241,6 +242,7 @@
     </script>
 </body>
 </html>
+
 
 
 
