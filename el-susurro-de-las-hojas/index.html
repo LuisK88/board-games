@@ -160,8 +160,8 @@
             }
         }
 
-        let rotInitB = { x: 50, y: 0, z: 0 };
-        let rotInitV = { x: 0, y: 0, z: 0 };
+        let rotInitB = { x: 90 - 45, y: 0 + 45, z: 0 };
+        let rotInitV = { x: 180 - 45, y: 0, z: 90 + 45 };
         cargarDado('./dado_blanco.glb', -0.7, 13, 'XYZ', rotInitB.x, rotInitB.y, rotInitB.z, (d) => { dieBlanco = d; checkCarga(); });
         cargarDado('./dado_verde.glb', 0.7, -13, 'XYZ', rotInitV.x, rotInitV.y, rotInitV.z, (d) => { dieVerde = d; checkCarga(); });
 
@@ -311,3 +311,4 @@
     </script>
 </body>
 </html>
+
