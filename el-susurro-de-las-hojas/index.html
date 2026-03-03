@@ -114,7 +114,7 @@
         let startTime = 0;
         const duration = 1500; 
         
-        let rotInitB = { x: 0, y: 0, z: 0 };
+        let rotInitB = { x: 60, y: 0, z: 0 };
         let rotInitV = { x: 0, y: 0, z: 0 };
         let startB = { x: 0, y: 0, z: 0 }, targetB = { x: 0, y: 0, z: 0 };
         let startV = { x: 0, y: 0, z: 0 }, targetV = { x: 0, y: 0, z: 0 };
@@ -229,7 +229,7 @@
             } else { 
                 camera.position.z = 2; 
                 // Ajustado a 0.10 para que no estén tan arriba
-                camera.setViewOffset(width, height, 0, height * 0.08, width, height);
+                camera.setViewOffset(width, height, 0, height * 0.05, width, height);
             }
             
             camera.position.y = 0; 
@@ -244,4 +244,5 @@
     </script>
 </body>
 </html>
+
 
